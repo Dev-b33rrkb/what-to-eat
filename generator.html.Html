@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>สร้างสติ๊กเกอร์ QR Code ร้านของคุณ</title>
+    <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * { box-sizing: border-box; font-family: 'Prompt', sans-serif; }
+        body { background: #fdfbfb; display: flex; justify-content: center; padding: 20px; color: #333; min-height: 100vh; align-items: center; }
+        .container { background: white; padding: 30px; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); max-width: 450px; width: 100%; }
+        h2 { color: #FF6B6B; text-align: center; margin-bottom: 5px; }
+        p.sub { text-align: center; font-size: 13px; color: #777; margin-bottom: 20px; }
+        
+        label { font-weight: 600; font-size: 14px; display: block; margin-bottom: 8px; color: #2d3436; }
+        input[type="text"] { width: 100%; padding: 12px; border: 2px solid #eee; border-radius: 10px; margin-bottom: 15px; font-size: 14px; transition: border 0.3s; }
+        input[type="text"]:focus { outline: none; border-color: #FF6B6B; }
+
+        /* ระบบ Tag (ป้ายเมนู) */
+        .tags-input-container {
+            display: flex; flex-wrap: wrap; gap: 8px; padding: 10px;
+            border: 2px solid #eee; border-radius: 10px; min-height: 100px;
+            margin-bottom: 15px; align-content: flex-start; cursor: text;
+        }
+        .tags-input-container:focus-within { border-color: #FF6B6B; }
+        
+        .tag {
+            background-color: #2d3436; color: white; padding: 6px 12px;
+            border-radius: 20px; font-size: 13px; font-weight: 500;
+            display: flex; align-items: center; gap: 6px; transition: all 0.3s ease;
+        }
+        .tag .remove-tag { cursor: pointer; font-weight: bold; font-size: 14px; color: #ffb8b8; }
+        .tag .remove-tag:hover { color: white; }
+
+        .tag.duplicate-alert {
+            background-color: #ff4757 !important;
+            transform: scale(1.05);
+            animation: shake 0.4s ease-in-out;
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-4px); }
+            75% { transform: translateX(4px); }
+        }
+
+        .tag-input { border: none; outline: none; padding: 6px 0; font-size: 14px; flex: 1; min-width: 120px; font-family: 'Prompt', sans-serif; }
+
+        .btn { background: #FF6B6B; color: white; border: none; padding: 15px; width: 100%; border-radius: 10px; font-size: 16px; font-weight: 700; cursor: pointer; transition: transform 0.1s; }
+        .btn:active { transform: scale(0.98); }
+        
+        /* ======== Pop-up แสดงป้าย QR Code สวยๆ ======== */
+        .modal-overlay {
+            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0, 0, 0, 0.6); display: flex; justify-content: center; align-items: center;
+            opacity: 0; visibility: hidden; transition: all 0.3s ease; z-index: 100; padding: 15px;
+        }
+        .modal-overlay.show { opacity: 1; visibility: visible; }
+        
+        .modal-content {
+            background: white; width: 100%; max-width: 380px; border-radius: 24px; padding: 20px;
+            text-align: center; transform: translateY(20px) scale(0.95); transition: all 0.3s ease;
+            box-shadow: 0 15px 35px rgba(0,0,0,0.2);
+        }
+        .modal-overlay.show .modal-content { transform: translateY(0) scale(1); }
+
+        /* กรอบป้ายสติ๊กเกอร์จำลอง */
+        .poster-preview {
+            background: linear-gradient(135deg, #FFF6F4 0%, #FFEAA7 100%);
+            border: 4px solid #FF6B6B; border-radius: 18px; padding: 20px 15px;
+            margin-bottom: 15px; box-shadow: 0 8px 20px rgba(255,107,107,0.2);
+        }
+        .poster-shop-name { font-size: 18px; font-weight: 700; color: #2D3436; margin-bottom: 4px; }
+        .poster-headline { font-size: 15px; font-weight: 700; color: #FF6B6B; margin-bottom: 12px; }
+        .poster-qr-box { background: white; padding: 10px; display: inline-block; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+        .poster-qr-box img { width: 160px; height: 160px; display: block; }
+        .poster-footer { font-size: 12px; color: #636E72; margin-top: 10px; font-weight: 500; }
+
+        .download-btn {
+            background: #27AE60; color: white; border: none; padding: 14px; width: 100%;
+            border-radius: 12px; font-size: 15px; font-weight: 700; cursor: pointer;
+            box-shadow: 0 4px 12px rgba(39, 174, 96, 0.3); display: flex; align-items: center; justify-content: center; gap: 8px;
+        }
+        .download-btn:active { transform: scale(0.98); }
+        
+        .close-modal-btn {
+            background: none; border: none; color: #b2bec3; font-size: 14px;
+            margin-top: 12px; cursor: pointer; text-decoration: underline; width: 100%;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h2>🏪 สร้าง QR Code ร้านคุณ</h2>
+        <p class="sub">ให้ลูกค้าสแกนสุ่มเมนูเด็ดที่ร้านคุณ!</p>
+
+        <label>ชื่อร้านของคุณ</label>
+        <input type="text" id="shopName" placeholder="เช่น ร้านเจ๊พร ตามสั่ง">
+
+        <label>พิมพ์เมนูอาหาร (กด Enter หรือพิมพ์ลูกน้ำ เพื่อแยกเมนู)</label>
+        <div class="tags-input-container" onclick="document.getElementById('tagInput').focus()">
+            <input type="text" id="tagInput" class="tag-input" placeholder="พิมพ์เมนูแล้วกด Enter...">
+        </div>
+
+        <button class="btn" onclick="generatePosterQR()">สร้างป้าย QR Code ทันที</button>
+    </div>
+
+    <!-- Pop-up แสดงป้ายสติ๊กเกอร์พร้อมปุ่มบันทึก -->
+    <div class="modal-overlay" id="posterModal">
+        <div class="modal-content">
+            <!-- กรอบป้ายสติ๊กเกอร์จำลอง -->
+            <div class="poster-preview" id="posterPreviewBox">
+                <div class="poster-shop-name" id="previewShopName">ร้านเจ๊พร ตามสั่ง</div>
+                <div class="poster-headline">😋 กินอะไรดี ? นึกไม่ออก ลองสแกนสิ!</div>
+                <div class="poster-qr-box">
+                    <img id="previewQrImg" src="" alt="QR Code">
+                </div>
+                <div class="poster-footer">สแกนเพื่อสุ่มเมนูเด็ดประจำร้าน</div>
+            </div>
+
+            <button class="download-btn" onclick="downloadPoster()">
+                📥 บันทึกภาพป้ายสติ๊กเกอร์
+            </button>
+            <button class="close-modal-btn" onclick="closeModal()">ปิดหน้าต่างนี้</button>
+        </div>
+    </div>
+
+    <!-- Canvas ลับสำหรับรวมภาพตอนกดดาวน์โหลด -->
+    <canvas id="downloadCanvas" width="600" height="750" style="display:none;"></canvas>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script>
+        let menuItems = [];
+        const tagInput = document.getElementById('tagInput');
+        const tagsContainer = document.querySelector('.tags-input-container');
+
+        tagInput.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' || e.key === ',') {
+                e.preventDefault();
+                addTag(this.value);
+            }
+        });
+
+        tagInput.addEventListener('blur', function() {
+            addTag(this.value);
+        });
+
+        function addTag(value) {
+            const text = value.trim().replace(/,/g, ''); 
+            if (text === '') return;
+            const existingIndex = menuItems.indexOf(text);
+            if (existingIndex !== -1) {
+                highlightDuplicate(existingIndex);
+            } else {
+                menuItems.push(text);
+                renderTags();
+            }
+            tagInput.value = '';
+        }
+
+        function renderTags() {
+            document.querySelectorAll('.tag').forEach(tag => tag.remove());
+            menuItems.forEach((menu, index) => {
+                const tagEl = document.createElement('span');
+                tagEl.classList.add('tag');
+                tagEl.id = `tag-${index}`;
+                tagEl.innerHTML = `${menu} <span class="remove-tag" onclick="removeTag(${index})">✕</span>`;
+                tagsContainer.insertBefore(tagEl, tagInput);
+            });
+        }
+
+        function removeTag(index) {
+            menuItems.splice(index, 1);
+            renderTags();
+        }
+
+        function highlightDuplicate(index) {
+            const targetTag = document.getElementById(`tag-${index}`);
+            if (targetTag) {
+                targetTag.classList.add('duplicate-alert');
+                setTimeout(() => { targetTag.classList.remove('duplicate-alert'); }, 800);
+            }
+        }
+
+        let generatedFinalUrl = "";
+
+        function generatePosterQR() {
+            const shop = document.getElementById('shopName').value.trim();
+            if(!shop) { alert("กรุณากรอกชื่อร้านด้วยครับ!"); return; }
+            if(menuItems.length === 0) { alert("กรุณาเพิ่มเมนูอาหารอย่างน้อย 1 เมนูครับ!"); return; }
+
+            const menuString = menuItems.join(',');
+            // เปลี่ยน URL นี้เป็นโฮสต์จริงของคุณเมื่ออัปโหลดขึ้นเว็บ (เช่น https://b33rrb.github.io/app/)
+            const baseUrl = "https://yourwebsite.com/index.html"; 
+            
+            generatedFinalUrl = `${baseUrl}?shop=${encodeURIComponent(shop)}&menu=${encodeURIComponent(menuString)}`;
+            const qrApiUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(generatedFinalUrl)}`;
+
+            // อัปเดตข้อความใน Popup
+            document.getElementById('previewShopName').innerText = shop;
+            document.getElementById('previewQrImg').src = qrApiUrl;
+
+            // แสดง Pop-up
+            document.getElementById('posterModal').classList.add('show');
+        }
+
+        function closeModal() {
+            document.getElementById('posterModal').classList.remove('show');
+        }
+
+        // ฟังก์ชันแปลงกรอบป้ายเป็นรูปภาพ PNG แล้วดาวน์โหลดลงมือถือทันที
+        function downloadPoster() {
+            const posterElement = document.getElementById('posterPreviewBox');
+            
+            // ใช้ไลบรารี html2canvas จับภาพกรอบป้าย
+            html2canvas(posterElement, { scale: 3, useCORS: true }).then(canvas => {
+                const link = document.createElement('a');
+                link.download = `sticker-qr-${document.getElementById('shopName').value.trim()}.png`;
+                link.href = canvas.toDataURL('image/png');
+                link.click();
+            });
+        }
+    </script>
+</body>
+</html>
